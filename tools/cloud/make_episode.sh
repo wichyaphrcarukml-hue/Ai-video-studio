@@ -25,7 +25,13 @@ NAME="$(basename "$EP")"
 [ -d node_modules ] || npm install --no-audit --no-fund
 mkdir -p out
 
-echo "[1/8] voice";       python3 "$HERE/tts_proxy.py" "$S/tts.py" edge
+# edge-tts sometimes answers "NoAudioReceived" once; retry a few times
+echo "[1/8] voice"
+for i in 1 2 3 4; do
+  python3 "$HERE/tts_proxy.py" "$S/tts.py" edge && break
+  [ "$i" -eq 4 ] && { echo "voice failed 4 times"; exit 1; }
+  echo "voice attempt $i failed, retrying in $((i * 5))s"; sleep $((i * 5))
+done
 echo "[2/8] transcribe";  python3 "$S/transcribe.py" vo/takeA.mp3 "${LANG_ARGS[@]}"
 echo "[3/8] align";       python3 "$S/align.py" vo/takeA.mp3
 echo "[4/8] splice";      python3 "$S/splice.py"
