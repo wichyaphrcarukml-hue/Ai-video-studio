@@ -1,0 +1,5 @@
+node_modules
+out/
+vo/*.wav
+vo/*.mp3
+vo/words.json
