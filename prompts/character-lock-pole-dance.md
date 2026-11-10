@@ -36,3 +36,10 @@ outfit change, jittery motion, sliding feet, blurry, low resolution, text, water
   reference image and join them on the step-around.
 - Outfit: name it in the reference or the prompt (e.g. "black athletic dance shorts and crop top") so it
   doesn't change mid-spin.
+
+## Previz (stylised preview)
+
+`tools/previz/pole-spin/` renders this shot with a code-built mannequin: same timing, camera moves and lighting,
+8 s, 1080x1920. It is a motion and camera guide, not the final photoreal look.
+
+    cd tools/previz && npm install && node pole-spin/render.mjs   # -> pole-spin/out/pole-spin-previz.mp4
