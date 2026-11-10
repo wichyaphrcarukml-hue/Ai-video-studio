@@ -1,0 +1,274 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Pole spin previz</title>
+<style>html,body{margin:0;background:#000;overflow:hidden}canvas{display:block}</style>
+<script type="importmap">{"imports":{"three":"../node_modules/three/build/three.module.js","three/addons/":"../node_modules/three/examples/jsm/"}}</script>
+</head><body>
+<script type="module">
+import * as THREE from 'three';
+import { Reflector } from 'three/addons/objects/Reflector.js';
+
+// Previz of prompts/character-lock-pole-dance.md: stylised mannequin, same timing, camera and light.
+const W = 720, H = 1280, DURATION = 8;
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(W, H); renderer.setPixelRatio(1);
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.1;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x030202);
+scene.fog = new THREE.FogExp2(0x0b0704, 0.11);
+const camera = new THREE.PerspectiveCamera(38, W / H, 0.05, 50);
+
+// ---------- seeded random ----------
+let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+
+// ---------- black marble texture ----------
+function marbleTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 1024;
+  const g = c.getContext('2d');
+  g.fillStyle = '#060606'; g.fillRect(0, 0, 1024, 1024);
+  for (let i = 0; i < 4000; i++) { g.fillStyle = `rgba(30,28,26,${rnd() * 0.25})`; g.fillRect(rnd() * 1024, rnd() * 1024, 3, 3); }
+  for (let v = 0; v < 26; v++) {
+    let x = rnd() * 1024, y = rnd() * 1024, ang = rnd() * Math.PI * 2;
+    const gold = rnd() < 0.3;
+    g.strokeStyle = gold ? `rgba(150,110,60,${0.25 + rnd() * 0.3})` : `rgba(170,165,160,${0.12 + rnd() * 0.25})`;
+    g.lineWidth = 0.6 + rnd() * 1.8; g.beginPath(); g.moveTo(x, y);
+    for (let s = 0; s < 120; s++) { ang += (rnd() - 0.5) * 0.5; x += Math.cos(ang) * 8; y += Math.sin(ang) * 8; g.lineTo(x, y); }
+    g.stroke();
+  }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+const marble = marbleTexture();
+
+// ---------- env map for chrome: dark room with warm light strips ----------
+const pmrem = new THREE.PMREMGenerator(renderer);
+const envScene = new THREE.Scene(); envScene.background = new THREE.Color(0x020202);
+const strip = (color, x, y, z, w, h, ry) => {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide }));
+  m.position.set(x, y, z); m.rotation.y = ry; envScene.add(m);
+};
+strip(0xffb060, 0, 2, -6, 3, 8, 0); strip(0xff9a40, -5, 2, -3, 1, 8, Math.PI / 2);
+strip(0x6c7c90, 5, 2, 3, 0.6, 8, -Math.PI / 2); strip(0x302a24, 0, 2, 6, 6, 3, Math.PI);
+const envMap = pmrem.fromScene(envScene, 0.02).texture;
+
+// ---------- studio ----------
+const floorMirror = new Reflector(new THREE.PlaneGeometry(14, 14), { textureWidth: 720, textureHeight: 1280, color: 0x5a5a5a });
+floorMirror.rotation.x = -Math.PI / 2; scene.add(floorMirror);
+const floorTex = marble.clone(); floorTex.repeat.set(3, 3); floorTex.needsUpdate = true;
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(14, 14), new THREE.MeshStandardMaterial({
+  map: floorTex, roughness: 0.3, metalness: 0.1, transparent: true, opacity: 0.8, envMap, envMapIntensity: 0.3 }));
+floor.rotation.x = -Math.PI / 2; floor.position.y = 0.002; scene.add(floor);
+const wallTex = marble.clone(); wallTex.repeat.set(2, 1); wallTex.needsUpdate = true;
+const wall = new THREE.Mesh(new THREE.PlaneGeometry(14, 7), new THREE.MeshStandardMaterial({ map: wallTex, roughness: 0.35, envMap, envMapIntensity: 0.2 }));
+wall.position.set(0, 3.5, -4); scene.add(wall);
+const ceil = new THREE.Mesh(new THREE.PlaneGeometry(14, 14), new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.6 }));
+ceil.rotation.x = Math.PI / 2; ceil.position.y = 4; scene.add(ceil);
+
+const chrome = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 1, roughness: 0.07, envMap, envMapIntensity: 1.6 });
+const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 4, 48), chrome); pole.position.y = 2; scene.add(pole);
+for (const y of [0.01, 3.99]) { const f = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, 0.02, 48), chrome); f.position.y = y; scene.add(f); }
+
+// ---------- light ----------
+scene.add(new THREE.HemisphereLight(0x8090a0, 0x100804, 0.18));
+const rimA = new THREE.SpotLight(0xffb25a, 110, 0, 0.5, 0.6, 1.3); rimA.position.set(-1.3, 3.2, -2.8);
+const rimB = new THREE.SpotLight(0xffa040, 85, 0, 0.5, 0.6, 1.3); rimB.position.set(1.6, 2.6, -2.6);
+const key = new THREE.SpotLight(0xffe2c4, 5, 0, 0.6, 0.8, 1.3); key.position.set(1.8, 2.4, 3.5);
+for (const l of [rimA, rimB, key]) { l.target.position.set(0, 1.1, 0); scene.add(l, l.target); }
+
+// haze: glow card behind the pole, light shafts, dust
+function radial(r, g, b) {
+  const c = document.createElement('canvas'); c.width = c.height = 256; const x = c.getContext('2d');
+  const gr = x.createRadialGradient(128, 128, 0, 128, 128, 128);
+  gr.addColorStop(0, `rgba(${r},${g},${b},1)`); gr.addColorStop(0.4, `rgba(${r},${g},${b},0.35)`); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  x.fillStyle = gr; x.fillRect(0, 0, 256, 256); return new THREE.CanvasTexture(c);
+}
+const glow = new THREE.Mesh(new THREE.PlaneGeometry(5, 6), new THREE.MeshBasicMaterial({
+  map: radial(255, 160, 70), transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+glow.position.set(-0.2, 2.0, -3.2); scene.add(glow);
+for (const l of [rimA, rimB]) {
+  const len = l.position.distanceTo(l.target.position) + 0.6;
+  const cone = new THREE.Mesh(new THREE.ConeGeometry(0.9, len, 32, 1, true), new THREE.MeshBasicMaterial({
+    color: 0xffa04a, transparent: true, opacity: 0.012, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }));
+  cone.position.copy(l.position).lerp(l.target.position, 0.5);
+  cone.lookAt(l.target.position); cone.rotateX(-Math.PI / 2); scene.add(cone);
+}
+const N = 260, dustBase = new Float32Array(N * 3);
+for (let i = 0; i < N; i++) dustBase.set([(rnd() - 0.5) * 4, rnd() * 3.5, (rnd() - 0.5) * 3 - 0.5], i * 3);
+const dustGeo = new THREE.BufferGeometry(); dustGeo.setAttribute('position', new THREE.BufferAttribute(dustBase.slice(), 3));
+const dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({ color: 0xffc080, size: 0.012, transparent: true, opacity: 0.55,
+  blending: THREE.AdditiveBlending, depthWrite: false }));
+scene.add(dust);
+
+// ---------- mannequin ----------
+const skin = new THREE.MeshPhysicalMaterial({ color: 0xc08a6c, roughness: 0.42, sheen: 0.6, sheenColor: 0xffc49a, clearcoat: 0.15 });
+const cloth = new THREE.MeshPhysicalMaterial({ color: 0x0c0c0e, roughness: 0.3, sheen: 1, sheenColor: 0x806048 });
+const hairM = new THREE.MeshStandardMaterial({ color: 0x24160e, roughness: 0.45 });
+const DOWN = new THREE.Vector3(0, -1, 0);
+
+function blob(mat, sx, sy, sz, x = 0, y = 0, z = 0) {
+  const m = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 20), mat); m.scale.set(sx, sy, sz); m.position.set(x, y, z); return m;
+}
+function bone(parent, x, y, z, len = 0, r1 = 0, r2 = 0, mat = skin) {
+  const g = new THREE.Group(); g.position.set(x, y, z); parent.add(g);
+  if (len) {
+    const c = new THREE.Mesh(new THREE.CylinderGeometry(r1, r2, len, 24), mat); c.position.y = -len / 2; g.add(c);
+    g.add(blob(mat, r1, r1, r1));
+  }
+  g.userData.len = len; return g;
+}
+
+const orbit = new THREE.Group(); scene.add(orbit);
+const body = new THREE.Group(); body.rotation.order = 'YXZ'; orbit.add(body);
+body.add(blob(cloth, 0.165, 0.12, 0.115, 0, -0.03, 0));                     // pelvis / shorts
+const waist = bone(body, 0, 0.05, 0);
+const belly = new THREE.Mesh(new THREE.CylinderGeometry(0.108, 0.13, 0.2, 24), skin); belly.position.y = 0.08; belly.scale.z = 0.75; waist.add(belly);
+const chest = bone(waist, 0, 0.17, 0);
+chest.add(blob(cloth, 0.15, 0.14, 0.1, 0, 0.12, 0));                         // crop top
+chest.add(blob(skin, 0.155, 0.06, 0.095, 0, 0.23, -0.005));                 // shoulders line
+const neck = bone(chest, 0, 0.28, 0);
+const neckM = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.046, 0.11, 16), skin); neckM.position.y = 0.04; neck.add(neckM);
+const head = bone(neck, 0, 0.09, 0);
+head.add(blob(skin, 0.085, 0.11, 0.098, 0, 0.1, 0.005));
+head.add(blob(hairM, 0.092, 0.1, 0.1, 0, 0.13, -0.015));
+head.add(blob(hairM, 0.06, 0.06, 0.06, 0, 0.15, -0.12));                    // bun
+const tail = bone(head, 0, 0.12, -0.15, 0.32, 0.035, 0.012, hairM);          // ponytail
+
+const arm = (s) => {
+  const sh = bone(chest, s * 0.165, 0.225, -0.005, 0.28, 0.043, 0.033);
+  const el = bone(sh, 0, -0.28, 0, 0.25, 0.032, 0.023);
+  const hd = bone(el, 0, -0.25, 0); hd.add(blob(skin, 0.026, 0.07, 0.04, 0, -0.06, 0));
+  return { up: sh, lo: el, hand: hd, a: 0.28, b: 0.25 };
+};
+const leg = (s) => {
+  const hip = bone(body, s * 0.09, -0.06, 0, 0.46, 0.082, 0.052);
+  const shorts = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.084, 0.1, 24), cloth); shorts.position.y = -0.04; hip.add(shorts);
+  const kn = bone(hip, 0, -0.46, 0, 0.45, 0.05, 0.032);
+  const an = bone(kn, 0, -0.45, 0);
+  const foot = new THREE.Group(); an.add(foot);
+  const fm = blob(skin, 0.035, 0.03, 0.11, 0, -0.03, 0.06); foot.add(fm);
+  return { up: hip, lo: kn, ankle: an, foot, a: 0.46, b: 0.45 };
+};
+const R = { arm: arm(-1), leg: leg(-1) }, L = { arm: arm(1), leg: leg(1) };   // her right is -x
+
+// ---------- limb helpers ----------
+const _v = new THREE.Vector3(), _q = new THREE.Quaternion(), _pq = new THREE.Quaternion();
+function aim(b, target) {
+  const p = b.getWorldPosition(new THREE.Vector3());
+  const d = _v.copy(target).sub(p).normalize();
+  _q.setFromUnitVectors(DOWN, d);
+  b.parent.getWorldQuaternion(_pq);
+  b.quaternion.copy(_pq.invert().multiply(_q));
+  b.updateMatrixWorld(true);
+}
+function midJoint(limb, target, hint) {          // two-bone IK: elbow / knee position
+  const S = limb.up.getWorldPosition(new THREE.Vector3());
+  const d = target.clone().sub(S); const dist = THREE.MathUtils.clamp(d.length(), 0.05, limb.a + limb.b - 0.002);
+  d.normalize();
+  const cosA = (limb.a ** 2 + dist ** 2 - limb.b ** 2) / (2 * limb.a * dist), sinA = Math.sqrt(Math.max(0, 1 - cosA ** 2));
+  const perp = hint.clone().sub(d.clone().multiplyScalar(hint.dot(d))).normalize();
+  return S.add(d.multiplyScalar(limb.a * cosA)).add(perp.multiplyScalar(limb.a * sinA));
+}
+function place(limb, mid, end) { aim(limb.up, mid); aim(limb.lo, end); }
+function setWorldQuat(o, q) { o.parent.getWorldQuaternion(_pq); o.quaternion.copy(_pq.invert().multiply(q)); o.updateMatrixWorld(true); }
+
+// ---------- timing ----------
+const ss = (a, b, x) => { const t = THREE.MathUtils.clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+const clamp01 = (x) => Math.min(1, Math.max(0, x));
+const lerp = THREE.MathUtils.lerp, D = Math.PI / 180;
+function angleAt(t) {                              // degrees around the pole
+  if (t < 3) return 0;
+  if (t < 4) return 150 * ss(3, 4, t) ;
+  if (t < 6.8) { const u = (t - 4) / 2.8; return 150 + 300 * (1 - (1 - u) ** 2); }
+  return 450;
+}
+function stepped(a, off, step) {                   // feet catch up in steps
+  const k = (a + off) / step, f = k - Math.floor(k);
+  return { ang: (Math.floor(k) + ss(0.3, 1, f)) * step - off, lift: Math.sin(Math.PI * clamp01((f - 0.3) / 0.7)) };
+}
+const orbitPt = (x, y, z) => orbit.localToWorld(new THREE.Vector3(x, y, z));
+const footStand = (ang, rad, z, lift) => new THREE.Vector3(rad * Math.cos(-ang * D), 0.075 + lift, -rad * Math.sin(-ang * D))
+  .add(new THREE.Vector3(Math.sin(-ang * D) * z, 0, Math.cos(-ang * D) * z));
+
+// ---------- pose ----------
+function pose(t) {
+  const a = angleAt(t);
+  const hook = ss(4.0, 4.45, t) * (1 - ss(6.5, 7.0, t));
+  const walk = t >= 3 && t < 4.2;
+  const wave = t < 3.1 ? Math.sin(2 * Math.PI * (t - 0.35) / 2.3) * ss(0.2, 0.7, t) * (1 - ss(2.6, 3.1, t)) : 0;
+  const waveAt = (lag) => t < 3.1 ? Math.sin(2 * Math.PI * (t - 0.35) / 2.3 - lag) * ss(0.2, 0.7, t) * (1 - ss(2.6, 3.1, t)) : 0;
+
+  orbit.rotation.y = -a * D; orbit.updateMatrixWorld(true);
+  const r = lerp(0.48, 0.34, hook);
+  const lift = 0.15 * hook;
+  body.position.set(r + 0.02 * waveAt(1.8), 1.0 + lift + 0.012 * Math.abs(waveAt(1)), 0.06 * waveAt(1.9));
+  body.rotation.set(-0.12 * waveAt(2.2) + 0.08 * hook, -0.4 * hook + 0.15 * ss(6.8, 7.6, t), -0.22 * hook + 0.04 * waveAt(2));
+  waist.rotation.set(0.16 * waveAt(1.1) - 0.05 * hook, 0, 0.03 * waveAt(0.6));
+  chest.rotation.set(0.22 * wave - 0.08 * hook, 0, -0.04 * wave);
+  neck.rotation.set(-0.12 * wave + 0.05 * waveAt(1), 0, 0.05);
+  head.rotation.set(-0.06 - 0.25 * hook, -0.25 * (1 - hook) * (t < 3 ? 1 : 0.4) + 0.2 * hook, 0.12 * hook);
+  tail.rotation.set(0.4 + 0.3 * hook, 0, 0.5 * hook * Math.sin(t * 3));
+  body.updateMatrixWorld(true);
+
+  const fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(body.getWorldQuaternion(new THREE.Quaternion()));
+  const bodyPt = (x, y, z) => body.localToWorld(new THREE.Vector3(x, y, z));
+  const bodyDir = (x, y, z) => new THREE.Vector3(x, y, z).normalize().transformDirection(body.matrixWorld);
+
+  // right hand on the pole at head height
+  const rh = orbitPt(0.035, lerp(1.66, 1.8, hook), 0);
+  place(R.arm, midJoint(R.arm, rh, bodyDir(-1, -0.6, -0.5)), rh);
+  // left hand: hip -> pole (spin) -> open arm (finish)
+  const lhHip = bodyPt(0.19, 0.0, 0.05), lhPole = orbitPt(0.04, 1.05 + lift * 0.5, 0.03), lhOpen = bodyPt(0.62, 0.32, 0.25);
+  const toPole = ss(3.3, 4.05, t), toOpen = ss(6.8, 7.5, t);
+  const lh = lhHip.clone().lerp(lhPole, toPole).lerp(lhOpen, toOpen);
+  place(L.arm, midJoint(L.arm, lh, bodyDir(1, -0.8, -0.3)), lh);
+
+  // feet on the floor (stepping while walking around the pole)
+  const blendToA = ss(3.85, 4.0, t);
+  const stepL = walk ? stepped(a, 0, 50) : { ang: a, lift: 0 }, stepR = walk ? stepped(a, 25, 50) : { ang: a, lift: 0 };
+  const angL = lerp(stepL.ang, a, blendToA), angR = lerp(stepR.ang, a, blendToA);
+  const fL = orbit.localToWorld(footStand(Math.min(angL, a + 5) - a, r + 0.13, 0.02, 0.09 * stepL.lift * (1 - blendToA)));
+  const fR = orbit.localToWorld(footStand(Math.min(angR, a + 5) - a, r - 0.07, 0.05, 0.09 * stepR.lift * (1 - blendToA)));
+  // inside (right) leg extended down and back during the spin
+  const fRspin = bodyPt(-0.1, -0.9, -0.24);
+  const endR = fR.clone().lerp(fRspin, hook);
+  place(R.leg, midJoint(R.leg, endR, fwd.clone().add(new THREE.Vector3(0, 0.2, 0))), endR);
+  // outside (left) leg: knee hooks around the front of the pole
+  const kneeStand = midJoint(L.leg, fL, fwd);
+  const kneeHook = orbitPt(0.03, 0.98 + lift, 0.075), ankleHook = orbitPt(-0.15, 0.82 + lift, -0.13);
+  place(L.leg, kneeStand.lerp(kneeHook, hook), fL.clone().lerp(ankleHook, hook));
+  // feet stay level on the floor, point while in the air
+  const bq = body.getWorldQuaternion(new THREE.Quaternion());
+  const yawQ = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), new THREE.Euler().setFromQuaternion(bq, 'YXZ').y);
+  for (const [limb, h] of [[L.leg, hook], [R.leg, hook]]) {
+    const point = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), 0.9 * h);
+    setWorldQuat(limb.foot, limb.lo.getWorldQuaternion(new THREE.Quaternion()).slerp(yawQ.clone().multiply(point), 1 - 0.6 * h));
+  }
+}
+
+// ---------- camera: slow push-in, cut to static low angle at 3 s ----------
+function cam(t) {
+  if (t < 3) {
+    const u = ss(0, 3, t) * 0.7 + (t / 3) * 0.3;
+    camera.position.set(lerp(0.75, 0.5, u), lerp(1.45, 1.3, u), lerp(4.8, 3.0, u));
+    camera.fov = 38; camera.lookAt(0.3, 1.12, 0);
+  } else {
+    camera.position.set(0.3, 0.42, 3.7); camera.fov = 42; camera.lookAt(0.05, 1.22, 0);
+  }
+  camera.updateProjectionMatrix();
+}
+
+function renderAt(t) {
+  pose(t); cam(t);
+  const p = dustGeo.attributes.position;
+  for (let i = 0; i < N; i++) {
+    p.array[i * 3] = dustBase[i * 3] + 0.05 * Math.sin(t * 0.7 + i);
+    p.array[i * 3 + 1] = ((dustBase[i * 3 + 1] + t * 0.04 * (1 + (i % 3))) % 3.5);
+    p.array[i * 3 + 2] = dustBase[i * 3 + 2] + 0.05 * Math.cos(t * 0.5 + i * 1.3);
+  }
+  p.needsUpdate = true;
+  renderer.render(scene, camera);
+}
+window.renderAt = renderAt; window.DURATION = DURATION; window.ready = true;
+renderAt(new URLSearchParams(location.search).has('t') ? +new URLSearchParams(location.search).get('t') : 1.2);
+</script></body></html>
