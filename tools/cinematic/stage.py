@@ -18,7 +18,7 @@ def floor_material():
     e = ramp.color_ramp.elements
     e[0].position, e[0].color = 0.0, (0.004, 0.004, 0.004, 1)
     e[1].position, e[1].color = 0.985, (0.006, 0.0055, 0.005, 1)
-    ramp.color_ramp.elements.new(1.0).color = (0.07, 0.055, 0.04, 1)
+    ramp.color_ramp.elements.new(1.0).color = (0.035, 0.028, 0.02, 1)
     p = principled(nt, **{'Roughness': 0.12, 'Coat Weight': 0.6, 'Coat Roughness': 0.05})
     nt.links.new(ramp.outputs['Color'], p.inputs['Base Color'])
     nt.links.new(p.outputs[0], out.inputs['Surface'])
@@ -73,9 +73,9 @@ def build_stage(with_pole=True, pole_x=0.0, pole_y=0.0):
         bm.to_mesh(me); bm.free(); me.materials.append(m)
         b = link(bpy.data.objects.new('PoleBase', me)); b.location = (pole_x, pole_y, 0.0075)
 
-    def area(name, loc, aim, power, color, size, shape='DISK'):
+    def area(name, loc, aim, power, color, size, shape='DISK', glossy=True):
         l = bpy.data.lights.new(name, 'AREA'); l.energy = power; l.color = color; l.shape = shape; l.size = size
-        o = link(bpy.data.objects.new(name, l)); o.location = loc
+        o = link(bpy.data.objects.new(name, l)); o.location = loc; o.visible_camera = False; o.visible_glossy = glossy
         o.rotation_euler = (Vector(aim) - Vector(loc)).to_track_quat('-Z', 'Y').to_euler()
         return o
 
@@ -86,8 +86,8 @@ def build_stage(with_pole=True, pole_x=0.0, pole_y=0.0):
         o.rotation_euler = (Vector(aim) - Vector(loc)).to_track_quat('-Z', 'Y').to_euler()
         return o
 
-    area('Key', (-1.6, -2.4, 2.7), (0, 0, 1.25), 220, (1.0, 0.86, 0.74), 1.0)
-    area('Fill', (2.2, -2.6, 1.3), (0, 0, 1.1), 30, (0.75, 0.82, 1.0), 2.0)
+    area('Key', (-1.6, -2.4, 2.7), (0, 0, 1.25), 220, (1.0, 0.86, 0.74), 1.0, glossy=False)
+    area('Fill', (2.2, -2.6, 1.3), (0, 0, 1.1), 30, (0.75, 0.82, 1.0), 2.0, glossy=False)
     area('RimL', (-1.5, 1.6, 2.3), (0, 0, 1.2), 600, (1.0, 0.62, 0.28), 0.6)
     area('RimR', (1.6, 1.5, 2.0), (0, 0, 1.1), 560, (1.0, 0.58, 0.25), 0.6)
     spot('Top', (0.1, -0.4, 3.9), (0, 0, 0.9), 900, (1.0, 0.88, 0.75), 38, 0.25)

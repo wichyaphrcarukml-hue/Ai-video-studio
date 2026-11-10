@@ -18,3 +18,14 @@ Only MPFB2 *data* files are read (base mesh, morph targets, rig joints, skin wei
 
 Files: `charlib.py` (data loading, shaping, rig), `character.py` (look: skin, eyes, hair, outfit, jewellery, posing),
 `stage.py` (club set, lights, camera, render settings).
+
+## Pole routine video (11 s, 24 fps, 9:16)
+    python3 animate.py $DATA out/frames final            # 720x1280 Cycles frames (~30 s/frame on 4 CPU cores)
+    python3 animate.py $DATA out/prev preview 1 264 12   # quick low-res check of every 12th frame
+    ffmpeg -framerate 24 -i out/frames/f%04d.png -vf "scale=1080:1920:flags=lanczos,noise=alls=3:allf=t" \
+           -c:v libx264 -crf 17 -pix_fmt yuv420p out/lumi-pole.mp4
+
+`animate.py` solves every frame (spine FK, analytic two-bone IK for arms/legs, planted feet that step,
+palm-facing grip with curled fingers) and bakes it to keyframes. The ponytail swings from a damped spring
+simulation driven by the head motion (geometry-nodes bend). Cameras: push-in full body -> medium (0-3.2 s),
+low-angle full body arc (3.2-8.1 s), medium push-in (8.1-11 s).

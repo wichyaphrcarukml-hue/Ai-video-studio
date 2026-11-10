@@ -119,7 +119,7 @@ def bind(ob, rig, body, rest_co):
     return m
 
 
-def make_curves(name, strands, r_root, r_tip, mat):
+def make_curves(name, strands, r_root, r_tip, mat, tailw=None):
     cv = bpy.data.hair_curves.new(name)
     sizes = [len(s) for s in strands]
     cv.add_curves(sizes)
@@ -129,6 +129,9 @@ def make_curves(name, strands, r_root, r_tip, mat):
         cv.attributes.new('radius', 'FLOAT', 'POINT')
     rad = np.concatenate([np.linspace(r_root, r_tip, n) for n in sizes]).astype(np.float32)
     cv.attributes['radius'].data.foreach_set('value', rad)
+    if tailw is not None:
+        a = cv.attributes.new('tailw', 'FLOAT', 'POINT')
+        a.data.foreach_set('value', np.concatenate(tailw).astype(np.float32))
     cv.materials.append(mat)
     return link(bpy.data.objects.new(name, cv))
 
@@ -158,7 +161,7 @@ def skin_material(D):
     col = mix_rgb(nt, math_node(nt, 'MULTIPLY', lids, 0.45), col, (0.22, 0.12, 0.08))          # bronze eyeshadow
     col = mix_rgb(nt, nails, col, (0.20, 0.008, 0.015))                                         # deep red polish
 
-    rough = mix_float(nt, lips, 0.46, 0.3)
+    rough = mix_float(nt, lips, 0.52, 0.3)
     rough = mix_float(nt, nails, rough, 0.08)
     # pores + fine detail bump
     p1 = node(nt, 'ShaderNodeTexNoise'); p1.inputs['Scale'].default_value = 1400; p1.inputs['Detail'].default_value = 2
@@ -173,7 +176,7 @@ def skin_material(D):
 
     p = principled(nt, **{'Subsurface Weight': 1.0, 'Subsurface Radius': (1.0, 0.35, 0.2), 'Subsurface Scale': 0.0045,
                           'Coat Weight': 0.0, 'Sheen Weight': 0.15, 'Sheen Roughness': 0.45,
-                          'Specular IOR Level': 0.38})
+                          'Specular IOR Level': 0.32})
     p.subsurface_method = 'RANDOM_WALK_SKIN'
     nt.links.new(col, p.inputs['Base Color']); nt.links.new(rough, p.inputs['Roughness'])
     nt.links.new(b2.outputs['Normal'], p.inputs['Normal'])
@@ -181,7 +184,7 @@ def skin_material(D):
     return m
 
 
-def hair_material(name, melanin=0.98, redness=0.22, rough=0.24):
+def hair_material(name, melanin=1.0, redness=0.15, rough=0.3):
     m, nt, out = new_material(name)
     h = node(nt, 'ShaderNodeBsdfHairPrincipled', (400, 0))
     h.parametrization = 'MELANIN'
@@ -397,8 +400,14 @@ def make_hair(body, bvh, L, rig, mat, gold, n_strands=16000):
         p0, p1, p2, p3 = tail_ctrl
         return p0 * (1 - t) ** 3 + p1 * 3 * (1 - t) ** 2 * t + p2 * 3 * (1 - t) * t ** 2 + p3 * t ** 3
 
-    strands = []
-    picks = RNG.choice(len(tris), size=n_strands, p=prob)
+    strands, tailw = [], []
+    # denser hairline: a share of the roots go to the front/temple band
+    cent = np.array([(t[0] + t[1] + t[2]) / 3 for t in tris])
+    rel = cent - np.array(hc); fr = -rel[:, 1] / (np.hypot(rel[:, 0], rel[:, 1]) + 1e-9)
+    band = ((fr > 0.2) & (cent[:, 2] < ez + 0.1)).astype(float)
+    prob2 = areas * band; prob2 = prob2 / prob2.sum()
+    picks = np.concatenate([RNG.choice(len(tris), size=n_strands, p=prob),
+                            RNG.choice(len(tris), size=n_strands // 4, p=prob2)])
     for k, ti in enumerate(picks):
         a, b_, c_ = tris[ti]
         u, v = RNG.random(), RNG.random()
@@ -434,6 +443,7 @@ def make_hair(body, bvh, L, rig, mat, gold, n_strands=16000):
             wave = 0.004 * math.sin(t * 18 + phase)
             pts.append(c + nvec * (rr + wave))
         strands.append(np.array([tuple(q) for q in pts]))
+        tailw.append(np.concatenate([np.zeros(12), np.linspace(0, Li, 18)[1:]]))
     # a few soft flyaways near the hairline
     for k in range(50):
         ti = RNG.choice(len(tris), p=prob)
@@ -441,7 +451,9 @@ def make_hair(body, bvh, L, rig, mat, gold, n_strands=16000):
         dirv = Vector((RNG.normal(), RNG.normal(), RNG.normal() + 1)).normalized()
         strands.append(np.array([tuple(loc + nrm * 0.0005 + (dirv * 0.012 + nrm * 0.004) * t * t + dirv * 0.006 * t)
                                  for t in np.linspace(0, 1, 6)]))
-    hair = make_curves('Hair', strands, 0.00008, 0.00003, mat)
+        tailw.append(np.zeros(6))
+    hair = make_curves('Hair', strands, 0.00008, 0.00003, mat, tailw)
+    hair['anchor'] = tuple(A); hair['tail_end'] = tuple(bez(1.0))
     parent_to_bone(hair, rig, 'head')
 
     # gold cuff
