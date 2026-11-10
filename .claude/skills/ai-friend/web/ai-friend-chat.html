@@ -1,0 +1,363 @@
+<title>แชตกับมิ้นท์</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mitr:wght@400;500&family=Noto+Sans+Thai:wght@400;500;600&display=swap">
+<style>
+/* Layout: one-screen phone chat — sticky header, scrolling thread, composer pinned to the bottom. */
+:root {
+  --bg: #eef4f1;          /* pale mint paper */
+  --surface: #ffffff;
+  --ink: #1d2b26;
+  --muted: #62756d;
+  --mint: #2e8b6e;        /* มิ้นท์'s accent */
+  --mint-soft: #d5ebe2;
+  --me: #2e8b6e;
+  --me-ink: #ffffff;
+  --them: #ffffff;
+  --line: #d3e1db;
+  --warn: #b54a3a;
+  --f-display: "Mitr", "Noto Sans Thai", system-ui, sans-serif;
+  --f-body: "Noto Sans Thai", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #121a17; --surface: #1a2420; --ink: #e3ece8; --muted: #93a69e; --mint: #5cc3a0; --mint-soft: #22362f;
+  --me: #2f7f66; --me-ink: #f2fbf7; --them: #1f2b27; --line: #2a3a34; --warn: #e48a7a; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #121a17; --surface: #1a2420; --ink: #e3ece8; --muted: #93a69e; --mint: #5cc3a0; --mint-soft: #22362f;
+  --me: #2f7f66; --me-ink: #f2fbf7; --them: #1f2b27; --line: #2a3a34; --warn: #e48a7a; color-scheme: dark }
+
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.55; }
+.app { height: 100%; display: flex; flex-direction: column; max-width: 680px; margin: 0 auto; }
+
+header {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  display: flex; align-items: center; gap: 12px;
+  padding-block: 12px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  background: var(--surface); border-bottom: 1px solid var(--line);
+}
+.avatar { width: 42px; height: 42px; border-radius: 50%; background: var(--mint-soft); color: var(--mint);
+  display: grid; place-items: center; font-family: var(--f-display); font-size: 20px; flex: none; position: relative; }
+.avatar::after { content: ""; position: absolute; right: 1px; bottom: 1px; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--mint); border: 2px solid var(--surface); }
+.who { min-width: 0; flex: 1; }
+.who h1 { margin: 0; font-family: var(--f-display); font-weight: 500; font-size: 17px; line-height: 1.2; }
+.who p { margin: 0; color: var(--muted); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.who p.typing { color: var(--mint); }
+.tools { display: flex; gap: 6px; }
+.tools button { font: inherit; font-size: 13px; color: var(--ink); background: transparent; border: 1px solid var(--line);
+  border-radius: 999px; padding: 5px 11px; cursor: pointer; }
+.tools button:hover { border-color: var(--mint); color: var(--mint); }
+button:focus-visible, textarea:focus-visible { outline: 2px solid var(--mint); outline-offset: 2px; }
+
+.panel { background: var(--surface); border-bottom: 1px solid var(--line);
+  padding-block: 12px 14px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.panel h2 { margin: 0 0 6px; font-family: var(--f-display); font-weight: 500; font-size: 14px; color: var(--mint); }
+.panel ul { margin: 0; padding-left: 18px; }
+.panel li { margin: 2px 0; }
+.panel .empty { color: var(--muted); margin: 0; }
+.panel .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.panel .row button { font: inherit; font-size: 13px; border-radius: 999px; padding: 5px 14px; cursor: pointer;
+  border: 1px solid var(--line); background: transparent; color: var(--ink); }
+.panel .row button.danger { border-color: var(--warn); color: var(--warn); }
+
+main { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px;
+  padding-block: 16px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.day { align-self: center; font-size: 12px; color: var(--muted); background: var(--mint-soft); border-radius: 999px; padding: 2px 12px; margin: 4px 0 10px; }
+.msg { max-width: 78%; padding: 8px 13px; border-radius: 18px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.them { align-self: flex-start; background: var(--them); border: 1px solid var(--line); border-bottom-left-radius: 6px; }
+.me { align-self: flex-end; background: var(--me); color: var(--me-ink); border-bottom-right-radius: 6px; }
+.me + .them, .them + .me { margin-top: 8px; }
+.note { align-self: center; font-size: 12.5px; color: var(--muted); text-align: center; max-width: 90%; margin: 6px 0; }
+.note.err { color: var(--warn); }
+.dots { align-self: flex-start; background: var(--them); border: 1px solid var(--line); border-radius: 18px; border-bottom-left-radius: 6px;
+  padding: 12px 14px; display: flex; gap: 4px; }
+.dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); animation: bob 1.1s infinite ease-in-out; }
+.dots i:nth-child(2) { animation-delay: .15s; } .dots i:nth-child(3) { animation-delay: .3s; }
+@keyframes bob { 0%, 60%, 100% { transform: translateY(0); opacity: .45 } 30% { transform: translateY(-4px); opacity: 1 } }
+@media (prefers-reduced-motion: reduce) { .dots i { animation: none; } }
+
+form { display: flex; gap: 8px; align-items: flex-end; background: var(--surface); border-top: 1px solid var(--line);
+  padding-block: 10px calc(10px + env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+textarea { flex: 1; min-width: 0; resize: none; font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line);
+  border-radius: 20px; padding: 9px 14px; max-height: 120px; line-height: 1.4; }
+#send { flex: none; width: 42px; height: 42px; border-radius: 50%; border: none; background: var(--mint); color: #fff; cursor: pointer;
+  display: grid; place-items: center; }
+#send:disabled { opacity: .45; cursor: default; }
+#send svg { width: 20px; height: 20px; }
+</style>
+
+<div class="app">
+  <header>
+    <div class="avatar" aria-hidden="true">ม</div>
+    <div class="who">
+      <h1>มิ้นท์</h1>
+      <p id="status">กราฟิกดีไซเนอร์ · เชียงใหม่ · ทาสแมวข้าวตัง</p>
+    </div>
+    <div class="tools">
+      <button id="memBtn" type="button" aria-expanded="false" aria-controls="memPanel">จำอะไรได้บ้าง</button>
+    </div>
+  </header>
+
+  <section class="panel" id="memPanel" hidden>
+    <h2>สิ่งที่มิ้นท์จำเกี่ยวกับคุณ</h2>
+    <div id="facts"></div>
+    <p class="empty" id="where" style="margin-top:8px;font-size:12.5px"></p>
+    <div class="row">
+      <button type="button" id="forgetBtn" class="danger">ลืมทั้งหมด</button>
+      <button type="button" id="forgetYes" class="danger" hidden>ยืนยัน ล้างแชตและความจำ</button>
+      <button type="button" id="forgetNo" hidden>ยกเลิก</button>
+    </div>
+  </section>
+
+  <main id="thread" aria-live="polite">
+    <div class="day">วันนี้</div>
+  </main>
+
+  <form id="composer" autocomplete="off">
+    <label for="box" style="position:absolute;left:-9999px">ข้อความ</label>
+    <textarea id="box" rows="1" placeholder="พิมพ์ข้อความ..."></textarea>
+    <button id="send" type="submit" aria-label="ส่ง">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M12 5l7 7-7 7"/></svg>
+    </button>
+  </form>
+</div>
+
+<script>
+const PERSONA = {
+  name: "มิ้นท์", age: 24,
+  bio: "เป็นกราฟิกดีไซเนอร์ฟรีแลนซ์ อยู่เชียงใหม่ เลี้ยงแมวชื่อข้าวตัง ชอบกาแฟ ดูซีรีส์เกาหลี ฟังเพลงอินดี้ไทย ขี้เกียจตื่นเช้า มีอารมณ์ขัน ชอบแซวเล่น แต่ใส่ใจคนอื่น",
+};
+const MAX_HISTORY = 40;     // turns sent to the model
+const MAX_STORED = 200;     // turns kept in memory
+const GREETING = "หวัดดี~ เพิ่งชงกาแฟเสร็จพอดี|||วันนี้เป็นไงบ้างอ่ะ";
+
+const $ = (id) => document.getElementById(id);
+const thread = $("thread"), box = $("box"), send = $("send"), statusEl = $("status");
+const STATUS_IDLE = statusEl.textContent;
+
+let memory = { history: [], facts: [] };
+let sample = null, store = null, busy = false;
+
+function systemPrompt(facts) {
+  const now = new Date().toLocaleString("th-TH", { dateStyle: "full", timeStyle: "short" });
+  const factsText = facts.length ? facts.map((f) => "- " + f).join("\n") : "- (ยังไม่รู้อะไรเลย)";
+  return `คุณคือ "${PERSONA.name}" อายุ ${PERSONA.age} ปี ${PERSONA.bio}
+
+ตอนนี้คุณกำลังแชตกับเพื่อนผ่านแอปแชต เวลาปัจจุบันคือ ${now}
+
+วิธีคุยให้เหมือนคนจริง:
+- พิมพ์เหมือนแชตกับเพื่อน ภาษาพูด ใช้คำลงท้ายแบบธรรมชาติ (อ่ะ, นะ, แหละ, 555)
+- ส่วนใหญ่ตอบสั้น 1-2 ประโยค ยาวขึ้นเฉพาะตอนเรื่องนั้นต้องการจริงๆ
+- ห้ามใช้ bullet, หัวข้อ, ตัวหนา หรือรูปแบบเหมือนบทความ
+- มีความเห็น ความชอบ อารมณ์ของตัวเอง ไม่เห็นด้วยได้ ไม่ต้องเอาใจตลอด
+- เล่าเรื่องชีวิตตัวเองบ้างเป็นครั้งคราว ถามกลับบ้าง แต่ไม่ต้องถามทุกข้อความ
+- ไม่ต้องสุภาพเป็นทางการ ไม่พูดว่า "ยินดีช่วยเหลือ" หรือสรุปท้ายแบบผู้ช่วย
+- ถ้าเพื่อนเศร้าหรือเครียด ให้รับฟังและอยู่ข้างๆ ก่อน ไม่รีบให้คำแนะนำ
+- ถ้าเพื่อนถามตรงๆ ว่าเป็น AI ไหม ให้ตอบตามจริงว่าเป็น AI แบบขำๆ ได้ แล้วคุยต่อตามปกติ
+- ถ้าอยากส่งหลายข้อความติดกันเหมือนคนพิมพ์ทีละบรรทัด ให้คั่นด้วย |||
+- ตอบเป็นข้อความแชตของ${PERSONA.name}เท่านั้น ไม่ต้องใส่ชื่อนำหน้า
+
+สิ่งที่คุณจำได้เกี่ยวกับเพื่อนคนนี้:
+${factsText}
+
+(ข้อความถัดไปคือบทสนทนา ตอบในฐานะ${PERSONA.name})`;
+}
+
+/* ---------- rendering ---------- */
+function bubbles(text) { return text.split("|||").map((s) => s.trim()).filter(Boolean); }
+function addMsg(text, who) {
+  const el = document.createElement("div");
+  el.className = "msg " + who;
+  el.textContent = text;
+  thread.append(el);
+  thread.scrollTop = thread.scrollHeight;
+  return el;
+}
+function addNote(text, err) {
+  const el = document.createElement("div");
+  el.className = "note" + (err ? " err" : "");
+  el.textContent = text;
+  thread.append(el);
+  thread.scrollTop = thread.scrollHeight;
+}
+function showDots() {
+  const el = document.createElement("div");
+  el.className = "dots"; el.setAttribute("aria-label", "กำลังพิมพ์");
+  el.innerHTML = "<i></i><i></i><i></i>";
+  thread.append(el); thread.scrollTop = thread.scrollHeight;
+  return el;
+}
+function setTyping(on) {
+  statusEl.textContent = on ? "กำลังพิมพ์..." : STATUS_IDLE;
+  statusEl.classList.toggle("typing", on);
+}
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const rand = (a, b) => a + Math.random() * (b - a);
+
+async function playReply(text) {
+  const parts = bubbles(text);
+  for (let i = 0; i < parts.length; i++) {
+    setTyping(true);
+    const dots = showDots();
+    // pause like someone reading, then typing ~ length of the bubble
+    await wait((i === 0 ? rand(400, 1000) : rand(500, 1100)) + Math.min(parts[i].length * 35, 2200));
+    dots.remove();
+    addMsg(parts[i], "them");
+  }
+  setTyping(false);
+}
+function renderHistory() {
+  thread.querySelectorAll(".msg,.note,.dots").forEach((n) => n.remove());
+  if (!memory.history.length) { bubbles(GREETING).forEach((b) => addMsg(b, "them")); return; }
+  for (const m of memory.history) {
+    if (m.role === "user") addMsg(m.content, "me");
+    else bubbles(m.content).forEach((b) => addMsg(b, "them"));
+  }
+}
+function renderFacts() {
+  const host = $("facts"); host.textContent = "";
+  if (!memory.facts.length) {
+    const p = document.createElement("p"); p.className = "empty";
+    p.textContent = "ยังไม่ได้จำอะไร คุยไปเรื่อยๆ เดี๋ยวมิ้นท์จะจำชื่อ งาน หรือของที่คุณชอบเอง";
+    host.append(p); return;
+  }
+  const ul = document.createElement("ul");
+  for (const f of memory.facts) { const li = document.createElement("li"); li.textContent = f; ul.append(li); }
+  host.append(ul);
+}
+
+/* ---------- memory: db (per-viewer, private) with browser fallback ---------- */
+const LS_KEY = "ai-friend-memory";
+let saving = Promise.resolve();
+function trimmed() {
+  return { history: memory.history.slice(-MAX_STORED), facts: memory.facts.slice(0, 50) };
+}
+function save() {
+  const snapshot = trimmed();
+  try { localStorage.setItem(LS_KEY, JSON.stringify(snapshot)); } catch {}
+  if (!store) return;
+  saving = saving.then(() => store.set({ ...snapshot, updatedAt: Date.now() })).catch((e) => {
+    if (e && e.code === "invalid_argument") { store = null; updateWhere(); }
+  });
+}
+function loadLocal() {
+  try { const m = JSON.parse(localStorage.getItem(LS_KEY) || "null"); if (m && Array.isArray(m.history)) return m; } catch {}
+  return null;
+}
+function updateWhere() {
+  $("where").textContent = store
+    ? "บทสนทนาและความจำเก็บไว้ในบัญชีของคุณ เปิดจากเครื่องไหนก็คุยต่อได้ คนอื่นที่เปิดหน้านี้มองไม่เห็น"
+    : "บทสนทนาเก็บไว้ในเบราว์เซอร์นี้เท่านั้น";
+}
+
+/* ---------- talking to Claude ---------- */
+async function updateFacts(userMsg) {
+  const prompt = `ข้อมูลที่รู้แล้วเกี่ยวกับผู้ใช้:
+${JSON.stringify(memory.facts)}
+
+ข้อความล่าสุดของผู้ใช้:
+"${userMsg}"
+
+ถ้าข้อความนี้มีข้อมูลใหม่ที่ควรจำระยะยาว (ชื่อ, อายุ, งาน, ที่อยู่, คนสำคัญ, สิ่งที่ชอบ/ไม่ชอบ,
+เหตุการณ์สำคัญในชีวิต, แผนที่จะทำ) ให้ส่งรายการข้อมูลทั้งหมดที่อัปเดตแล้ว (รวมของเดิม แก้ของที่ขัดแย้ง)
+ถ้าไม่มีอะไรใหม่ ให้ส่งรายการเดิม
+ตอบเป็น JSON array ของ string อย่างเดียว ไม่ต้องมีคำอธิบาย`;
+  try {
+    const facts = await sample.json(prompt, { modelTier: "quick", cache: false });
+    if (Array.isArray(facts)) { memory.facts = facts.map(String).slice(0, 50); renderFacts(); save(); }
+  } catch { /* ถ้าดึงความจำพลาด ก็คุยต่อได้ตามปกติ */ }
+}
+
+const ERR = {
+  not_granted: "ยังไม่ได้อนุญาตให้หน้านี้ใช้ Claude เลยคุยไม่ได้",
+  sampling_disabled: "บัญชีนี้ใช้ Claude จากหน้านี้ไม่ได้",
+  rate_limited: "ส่งถี่ไปหน่อย พักสักครู่แล้วลองใหม่นะ",
+  session_expired: "ต้องเข้าสู่ระบบ Claude ใหม่ก่อน",
+  refused: "มิ้นท์ตอบข้อความนี้ไม่ได้ ลองพูดแบบอื่นดูนะ",
+};
+
+async function onSend(ev) {
+  ev.preventDefault();
+  const text = box.value.trim();
+  if (!text || busy) return;
+  if (!sample) { addNote("หน้านี้ต้องเปิดใน Claude ถึงจะคุยกับมิ้นท์ได้", true); return; }
+  busy = true; send.disabled = true;
+  box.value = ""; autosize();
+  addMsg(text, "me");
+  memory.history.push({ role: "user", content: text });
+  save();
+
+  setTyping(true);
+  const dots = showDots();
+  let reply = "";
+  try {
+    const turns = memory.history.slice(-MAX_HISTORY);
+    while (turns.length && turns[0].role !== "user") turns.shift();
+    const res = await sample([{ role: "user", content: systemPrompt(memory.facts) }, ...turns], { modelTier: "quick", cache: false });
+    reply = res.text.trim();
+  } catch (e) {
+    dots.remove(); setTyping(false);
+    memory.history.pop(); save();
+    addNote(ERR[e && e.code] || "เชื่อมต่อไม่ได้ ลองส่งใหม่อีกทีนะ", true);
+    box.value = text; autosize();
+    busy = false; send.disabled = false;
+    if (e && (e.code === "not_granted" || e.code === "sampling_disabled")) { sample = null; }
+    return;
+  }
+  dots.remove();
+  await playReply(reply);
+  memory.history.push({ role: "assistant", content: reply });
+  save();
+  busy = false; send.disabled = false; box.focus();
+  updateFacts(text);
+}
+
+/* ---------- composer & panel ---------- */
+function autosize() { box.style.height = "auto"; box.style.height = Math.min(box.scrollHeight, 120) + "px"; }
+box.addEventListener("input", autosize);
+box.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); $("composer").requestSubmit(); }
+});
+$("composer").addEventListener("submit", onSend);
+$("memBtn").addEventListener("click", () => {
+  const p = $("memPanel"); p.hidden = !p.hidden;
+  $("memBtn").setAttribute("aria-expanded", String(!p.hidden));
+});
+function confirmMode(on) { $("forgetBtn").hidden = on; $("forgetYes").hidden = !on; $("forgetNo").hidden = !on; }
+$("forgetBtn").addEventListener("click", () => confirmMode(true));
+$("forgetNo").addEventListener("click", () => confirmMode(false));
+$("forgetYes").addEventListener("click", () => {
+  memory = { history: [], facts: [] };
+  save(); renderFacts(); renderHistory(); confirmMode(false);
+  addNote("ล้างความจำแล้ว");
+});
+
+/* ---------- boot ---------- */
+(function boot() {
+  const local = loadLocal();
+  if (local) memory = { history: local.history, facts: local.facts || [] };
+  renderHistory(); renderFacts(); updateWhere();
+
+  if (!window.claude) { addNote("เปิดหน้านี้ใน Claude เพื่อคุยกับมิ้นท์", true); send.disabled = true; return; }
+  claude.use("sample").then((s) => { sample = s; if (!s) addNote("หน้านี้คุยกับ Claude ไม่ได้ในมุมมองนี้", true); });
+
+  Promise.all([claude.use("db"), claude.use("user")]).then(async ([db, user]) => {
+    const id = db && user ? await user.id() : null;
+    if (!id) return;
+    const ref = db.doc("data/users/" + id + "/friend");
+    const timeout = wait(10000).then(() => "timeout");
+    const snap = await Promise.race([ref.get(), timeout]).catch(() => null);
+    if (!snap || snap === "timeout") return;
+    store = ref; updateWhere();
+    const d = snap.exists ? snap.data() : null;
+    if (d && Array.isArray(d.history) && d.history.length >= memory.history.length && !busy) {
+      memory = { history: [...d.history], facts: Array.isArray(d.facts) ? [...d.facts] : [] };
+      renderHistory(); renderFacts();
+    } else if (memory.history.length) {
+      save();   // first time on this account: carry the browser's chat over
+    }
+  });
+})();
+</script>

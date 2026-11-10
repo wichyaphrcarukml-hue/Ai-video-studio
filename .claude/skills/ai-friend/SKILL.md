@@ -35,3 +35,12 @@ git-ignored — it holds personal chat data.
 - `MODEL`, `MAX_HISTORY`, `TYPING_SPEED`.
 - Style rules live in `build_system_prompt`: casual Thai, 1–2 sentences usually, no bullets/headings,
   own opinions, listen first when the friend is sad, admit being an AI if asked directly, `|||` splits bubbles.
+
+## Web chat
+`web/ai-friend-chat.html` is the same friend as a claude.ai Artifact page (published at
+https://claude.ai/artifact/UgbGX4nax7LHMPHmEK8VPx, private to the owner until shared). No API key: it uses
+the artifact `sample` capability (the viewer's own Claude account, `modelTier: "quick"`), and keeps each
+viewer's chat + facts privately in `db` at `data/users/<id>/friend` (falls back to browser storage).
+Same persona and system prompt as the script; replies split on `|||` play as separate bubbles with a typing
+indicator. To change it, edit the file and republish with the Artifact tool using the same file path or the URL
+above (capabilities: sample, db, user).
