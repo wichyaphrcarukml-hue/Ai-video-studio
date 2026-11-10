@@ -1,0 +1,53 @@
+{
+ "take": "vo/takeA.mp3",
+ "lines": [
+  {
+   "th": "ถ้ามีคนเคาะประตูห้องคุณ ตอนตีสอง อย่าตอบ",
+   "en": "If someone knocks on your door at 2 a.m., don't answer.",
+   "t": 0.18,
+   "end": 2.42
+  },
+  {
+   "th": "เพราะคนที่รู้จักคุณ จะโทรมาก่อนเสมอ",
+   "en": "Anyone who knows you always calls first.",
+   "t": 3.4,
+   "end": 5.51
+  },
+  {
+   "th": "ตีสองสิบนาที ห้องหกศูนย์สี่",
+   "en": "2:10 a.m. Room 604.",
+   "t": 6.47,
+   "end": 8.29
+  },
+  {
+   "th": "ส้มฉุน แมวของคุณ ลุกขึ้นยืน หูตั้ง",
+   "en": "Somchun, your cat, stands up. Ears forward.",
+   "t": 9.26,
+   "end": 11.25
+  },
+  {
+   "th": "ก๊อก ก๊อก ก๊อก สามครั้ง ช้าๆ",
+   "en": "Knock. Knock. Knock. Three, slow.",
+   "t": 12.2,
+   "end": 13.74
+  },
+  {
+   "th": "ใต้ประตู มีเงาเท้าหนึ่งคู่",
+   "en": "Under the door, a pair of feet.",
+   "t": 14.68,
+   "end": 16.13
+  },
+  {
+   "th": "ทุกอย่างถูกหมด ยกเว้นเรื่องเดียว",
+   "en": "You got everything right, except one thing.",
+   "t": 17.08,
+   "end": 18.7
+  },
+  {
+   "th": "เสียงเคาะครั้งที่สี่ ดังมาจากตู้เสื้อผ้า ข้างหลังคุณ",
+   "en": "The fourth knock comes from the wardrobe behind you.",
+   "t": 19.66,
+   "end": 22.32
+  }
+ ]
+}

@@ -1,3 +1,4 @@
 memory.json
 node_modules/
 series/*/out/
+__pycache__/
